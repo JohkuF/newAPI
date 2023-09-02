@@ -47,7 +47,6 @@ if __name__ == "__main__":
     logging.basicConfig(
         level=logging.DEBUG,
         format=json.dumps({'timestamp': '%(asctime)s', 'level': '%(levelname)s', 'message': '%(message)s'}),
-        #format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[logging.StreamHandler()]
     )
     app.start()
