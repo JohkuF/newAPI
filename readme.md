@@ -39,6 +39,18 @@ if __name__ == "__main__":
     app.start()
 ```
 
+## Supported HTTP Methods
+
+NewAPI currently supports the following HTTP methods:
+
+- **GET**: Used for retrieving data from the server.
+- **POST**: Used for creating or updating data on the server.
+
+Additional HTTP methods such as PUT, DELETE, or PATCH may be considered for future updates to the framework.
+
+If you require support for other HTTP methods, you may need to consider alternative frameworks or implement custom functionality.
+
+
 ## In Todo
 
 - Currently working on making the code asynchronous
