@@ -1,6 +1,7 @@
 import json
 import socket
 import inspect
+import logging
 import _thread
 from pydantic import create_model, ValidationError, ConfigDict
 
@@ -19,23 +20,23 @@ class NewAPI(Router):
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((self.host, self.port))
         server_socket.listen()
-        print(f"Server listening on {self.host}:{self.port}")
+        logging.info(f"Server listening on {self.host}:{self.port}")
 
         while True:
             try:
                 client_socket, client_address = server_socket.accept()
-                _thread.start_new_thread(self._handle_client, (client_socket,))
+                _thread.start_new_thread(self._handle_client, (client_socket, client_address))
 
             except KeyboardInterrupt:
-                print("Received KeyboardInterrupt. Shutting down server gracefully.")
+                logging.info("Received KeyboardInterrupt. Shutting down server gracefully.")
                 server_socket.shutdown(socket.SHUT_RDWR)
                 server_socket.close()
                 break  # Exit the loop
 
             except Exception as e:
-                print(e)
+                logging.exception(e)
 
-    def _handle_client(self, client_socket: socket.socket):
+    def _handle_client(self, client_socket: socket.socket, client_address: tuple):
         # Receive the header
         buffer: bytes = b""
         while True:
@@ -50,7 +51,7 @@ class NewAPI(Router):
 
         header = header.decode("utf-8")
 
-        if header[:4] == "POST":
+        if header[:4] == "POST":            
             # Receive rest of body
             content_lenght = int(header.split("Content-Length: ")[1].split(",")[0])
 
@@ -58,12 +59,12 @@ class NewAPI(Router):
 
             body = json.loads(body.decode("utf-8"))
 
-            response = self._handle_request(header, 'POST', body)
+            response = self._handle_request(header, 'POST', body, client_address)
 
             client_socket.sendall(response.encode("utf-8"))
 
         elif header[:3] == "GET":
-            response = self._handle_request(header, 'GET')
+            response = self._handle_request(header, 'GET', client_address=client_address)
             client_socket.sendall(response.encode("utf-8"))
 
         else:
@@ -72,13 +73,15 @@ class NewAPI(Router):
 
         client_socket.close()
 
-    def _handle_request(self, header: str, method: str, body: dict | None = None):
+    def _handle_request(self, header: str, method: str, body: dict | None = None, client_address: tuple = ()):
         path, query_args = self.parse_request(header)
-        
         handler = self.routes.get((method, path))
-        
-        if not handler: return "HTTP/1.1 404 Not Found\r\n\r\Invalid path"
 
+        if not handler:
+            logging.error(f'Invalid path {path}')
+            return "HTTP/1.1 404 Not Found\r\n\r\Invalid path"
+
+        logging.info(f"{client_address[0]} {method} {path} with {body if body is not None else query_args}")
         response = self._make_response(handler, body if body is not None else query_args)
         
         if callable(response):
