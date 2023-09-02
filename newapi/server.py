@@ -9,6 +9,7 @@ from .router import Router
 from .response_models import JSONResponse, Response
 
 
+
 class NewAPI(Router):
     def __init__(self, host, port):
         super().__init__()
