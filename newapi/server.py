@@ -6,7 +6,7 @@ import _thread
 from pydantic import create_model, ValidationError, ConfigDict
 
 from .router import Router
-from .response_models import JSONResponse
+from .response_models import JSONResponse, Response
 
 
 class NewAPI(Router):
@@ -68,7 +68,7 @@ class NewAPI(Router):
             client_socket.sendall(response.encode("utf-8"))
 
         else:
-            response = "HTTP/1.1 404 Not Found\r\n\r\Invalid method"
+            response = "HTTP/1.1 404 Not Found\r\n\r\nInvalid method"
             client_socket.sendall(response.encode("utf-8"))
 
         client_socket.close()
@@ -79,15 +79,14 @@ class NewAPI(Router):
 
         if not handler:
             logging.error(f'Invalid path {path}')
-            return "HTTP/1.1 404 Not Found\r\n\r\Invalid path"
+            return "HTTP/1.1 404 Not Found\r\n\r\nInvalid path"
 
         logging.info(f"{client_address[0]} {method} {path} with {body if body is not None else query_args}")
         response = self._make_response(handler, body if body is not None else query_args)
         
-        if callable(response):
-            return response
-
-        return JSONResponse(response)
+        if isinstance(response, Response):
+            return response.dumps()
+        return JSONResponse(response).dumps()
 
     def parse_request(self, request_data: str):
         lines = request_data.strip().split("\r\n")
