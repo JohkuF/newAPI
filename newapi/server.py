@@ -18,7 +18,7 @@ class NewAPI(Router):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((self.host, self.port))
-        server_socket.listen(5)
+        server_socket.listen()
         print(f"Server listening on {self.host}:{self.port}")
 
         while True:
@@ -39,7 +39,7 @@ class NewAPI(Router):
         # Receive the header
         buffer: bytes = b""
         while True:
-            data = client_socket.recv(128)
+            data = client_socket.recv(256)
             if not data:
                 break
 
@@ -58,39 +58,33 @@ class NewAPI(Router):
 
             body = json.loads(body.decode("utf-8"))
 
-            response = self.handle_request(header, body)
+            response = self._handle_request(header, 'POST', body)
+
             client_socket.sendall(response.encode("utf-8"))
 
         elif header[:3] == "GET":
-            response = self.handle_request(header)
+            response = self._handle_request(header, 'GET')
             client_socket.sendall(response.encode("utf-8"))
 
         else:
-            response = "Invalid method or something idk"
+            response = "HTTP/1.1 404 Not Found\r\n\r\Invalid method"
             client_socket.sendall(response.encode("utf-8"))
 
         client_socket.close()
 
-    def handle_request(self, header: str, body: dict | None = None):
-        method, path, query_args = self.parse_request(header)
+    def _handle_request(self, header: str, method: str, body: dict | None = None):
+        path, query_args = self.parse_request(header)
+        
         handler = self.routes.get((method, path))
+        
+        if not handler: return "HTTP/1.1 404 Not Found\r\n\r\Invalid path"
 
-        if handler:
-            if method == "GET":
-                response = self._make_response(handler, query_args)
+        response = self._make_response(handler, body if body is not None else query_args)
+        
+        if callable(response):
+            return response
 
-                if not callable(response):
-                    return JSONResponse(response)
-                return response
-
-            elif body and method == "POST":
-                response = self._make_response(handler, body)
-
-                if not callable(response):
-                    return JSONResponse(response)
-                return response
-
-        return "HTTP/1.1 404 Not Found\r\n\r\nRoute not found or invalid method"
+        return JSONResponse(response)
 
     def parse_request(self, request_data: str):
         lines = request_data.strip().split("\r\n")
@@ -108,9 +102,9 @@ class NewAPI(Router):
 
         else:
             path = full_path
-            query_args = []
+            query_args = None
 
-        return method, path, self.query_args_to_dict(query_args)
+        return path, self.query_args_to_dict(query_args)
 
     def _make_response(self, handler, data):
         Model = self.create_model_from_function(handler)
@@ -122,13 +116,9 @@ class NewAPI(Router):
             return e.json()
 
     @staticmethod
-    def query_args_to_dict(query_args: list[str]):
-        args = {}
-        for arg in query_args:
-            key, value = arg.split("=")
-            args[key] = value
-
-        return args
+    def query_args_to_dict(query_args: list[str] | None):
+        if not query_args: return {}
+        return dict(arg.split('=') for arg in query_args)
 
     @staticmethod
     def create_model_from_function(handler):
