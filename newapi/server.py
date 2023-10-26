@@ -9,12 +9,12 @@ from .router import Router
 from .response_models import JSONResponse, Response
 
 
-
 class NewAPI(Router):
     def __init__(self, host, port):
         super().__init__()
         self.host = host
         self.port = port
+        #self.start()
 
     def start(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -74,15 +74,25 @@ class NewAPI(Router):
 
         client_socket.close()
 
-    def _handle_request(self, header: str, method: str, body: dict | None = None, client_address: tuple = ()):
-        path, query_args = self.parse_request(header)
+    #def _handle_request(self, header: str, method: str, body: dict | None = None, client_address: tuple = ()):
+    async def _handle_request(self, scope, message):
+        #path, query_args = self.parse_request(header)
+        method = scope['method']
+        path = scope['path']
+        query_args = scope['query_string']
+        
+        if message['body'] != b'':
+            body = json.loads(message['body'])
+        else:
+            body = None
+                
         handler = self.routes.get((method, path))
 
         if not handler:
             logging.error(f'Invalid path {path}')
             return "HTTP/1.1 404 Not Found\r\n\r\nInvalid path"
 
-        logging.info(f"{client_address[0]} {method} {path} with {body if body is not None else query_args}")
+        #logging.info(f"{client_address[0]} {method} {path} with {body if body is not None else query_args}")
         response = self._make_response(handler, body if body is not None else query_args)
         
         if isinstance(response, Response):

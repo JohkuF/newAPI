@@ -1,9 +1,10 @@
 import json
 import logging
+import uvicorn
+from pprint import pprint
 
 from pydantic import BaseModel
 from newapi import NewAPI, HTMLResponse
-
 
 class Info(BaseModel):
     name: str
@@ -23,11 +24,34 @@ def hello(name: str, age: int | None = None):
 def post_hello(name: str, age: int | None = None):
     return Info.model_validate({"name": name, "age": age}).model_dump(exclude_none=True)
 
+"""
+
+async def asgi_app(scope, receive, send):
+    assert scope['type'] == 'http'
+
+    while True:
+        message = await receive()
+        if message['type'] == 'http.disconnect':
+            break
+        if message['type'] == 'http.request':
+            pprint(scope)
+            http_method = scope.get('method', b'').decode('utf-8')
+            http_path = scope.get('path', b'').decode('utf-8')
+            headers = scope.get('headers', [])
+
+            print(http_method, http_path, headers)
+"""
+
+
+
 if __name__ == "__main__":
+    pass
+    """
     logging.basicConfig(
         level=logging.DEBUG,
         format=json.dumps({'timestamp': '%(asctime)s', 'level': '%(levelname)s', 'message': '%(message)s'}),
-        #format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[logging.StreamHandler()]
     )
-    app.start()
+    """
+    #config = uvicorn.Config('demo:app', port=8098, log_level='debug')
+    uvicorn.run('demo:asgi_app', port=8098, reload=True)
